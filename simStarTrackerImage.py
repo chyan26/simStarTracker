@@ -197,33 +197,58 @@ def main():
 
     parser = argparse.ArgumentParser(description='Generating simulation image for Star Tracker.')
 
-    parser.add_argument('-l','--loop',default=False, dest="loop",
-                        help='Number of simulated image.')
+    #parser.add_argument('-l','--loop',default=False, dest="loop",
+    #                    help='Number of simulated image.')
     parser.add_argument('-p','--nopsf',default=False, dest="nopsf",
                         help='Removing PSF from star spots',action="store_true")
     parser.add_argument('-s','--savetif',default=False, dest="savetif",
                         help='Save TIFF file for cell phone display',action="store_true")
-    
+    parser.add_argument('-v','--verbose',default=False, dest="verbose",
+                        help='Display detailed information',action="store_true")
+    parser.add_argument('-r','--ra',default=False, dest="ravalue",
+                        help='Setting RA value.',action="store_true")
+    parser.add_argument('-d','--dec',default=False, dest="decvalue",
+                        help='Setting DEC value.',action="store_true")
+    parser.add_argument('-e','--etime',default=False, dest="etime",
+                        help='Setting exposure time.',action="store_true")
+
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
         parser.print_help() 
         sys.exit(1) 
     
-    if args.loop:
-        print(args.loop)
 
-    catalog = '/Users/chyan/PythonCode/Instrument/StarTracker/Catalog/gsc.all'
+    catalog = './Catalog/gsc.all'
     df=readStarCatalog(catalog)
 
-    ra = 1.64066278187
-    dec = 28.713430003
+    if args.ravalue is False:
+        ra = random.uniform(0, 360)
+    else:
+        ra = ravalue
+    
+    if args.decvalue is False:
+        dec = random.uniform(-90, 90)
+    else:
+        dec = decvalue
+    
+    
+    #ra = 1.64066278187
+    #dec = 28.713430003
     #ra = random.uniform(-90, 90)
     #dec = random.uniform(0, 360)
-
+    
+    if args.verbose:
+        print(f'Boresight center is RA = {ra} DEC ={dec}')
 
     # Give a exposure time
-    exptime = 0.1 #
+    if args.exposure is False:
+        exptime = 0.1 #
+    else:
+        exptime = etime
+
+    if args.verbose:
+        print(f'Exposure time ={exptime}')
 
     a=map(list,zip(*[df['dec'].values,df['ra'].values]))
     coord=np.array([])
@@ -299,10 +324,12 @@ def main():
     skyimage=np.random.normal(0.0, 1.0, 1024*1280).reshape(1024,1280)
     #skyimage=np.zeros((1024,1280))
     
+    
     # Establish a table for mapping flux to RGB value
-    rgb_value=[]
-    for i in range(1280):
-        rgb_value.append(getRGBvalue(i))
+    if args.savetif is True:   
+        rgb_value=[]
+        for i in range(1280):
+            rgb_value.append(getRGBvalue(i))
 
     stars.to_csv(f'simStarTracker.csv')
 
