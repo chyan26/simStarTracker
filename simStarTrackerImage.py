@@ -102,7 +102,7 @@ def getPSFfromImage(theta, rho):
     psf['y1']=psf['y']+psf['r']
     
     
-    psf['theta'],psf['rho']=polar(psf['x'].values-640,psf['y'].values-512)
+    psf['theta'],psf['rho']=polar(psf['x'].values-822,psf['y'].values-1920)
     
     # selecting closet PSF
     ind=np.where((psf['rho']-rho).abs() == min((psf['rho']-rho).abs()))
@@ -216,8 +216,11 @@ def main():
     catalog = '/Users/chyan/PythonCode/Instrument/StarTracker/Catalog/gsc.all'
     df=readStarCatalog(catalog)
 
-    ra = random.uniform(-90, 90)
-    dec = random.uniform(0, 360)
+    ra = 1.64066278187
+    dec = 28.713430003
+    #ra = random.uniform(-90, 90)
+    #dec = random.uniform(0, 360)
+
 
     # Give a exposure time
     exptime = 0.1 #
@@ -236,10 +239,13 @@ def main():
 
     # Set up an orthographic projection
     # Vector properties may be set with Python lists, or Numpy arrays
-    w.wcs.crpix = [640,512]
-    w.wcs.cdelt = np.array([-0.015972223, 0.015972223])
-    w.wcs.crval = [dec, ra]
-    w.wcs.ctype = ["RA---SIN", "DEC--SIN"]
+    w.wcs.lonpole = 180
+    w.wcs.latpole = 0
+    w.wcs.crpix = [640.5,512.5]
+    w.wcs.cdelt = np.array([-0.0178552972045, 0.0178617816256])
+    w.wcs.cd = np.array([[0.000436314221715, -0.0178552972045], [0.0178617816256,0.000389544945898]])
+    w.wcs.crval = [ra,dec]
+    w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
 
     # Convert the same coordinates to pixel coordinates.
     pixcrd2 = w.wcs_world2pix(coord, 1)
@@ -298,6 +304,7 @@ def main():
     for i in range(1280):
         rgb_value.append(getRGBvalue(i))
 
+    stars.to_csv(f'simStarTracker.csv')
 
     # Loop through star table 
     for index, row in stars.iterrows():
