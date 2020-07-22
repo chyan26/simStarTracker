@@ -205,12 +205,14 @@ def main():
                         help='Save TIFF file for cell phone display',action="store_true")
     parser.add_argument('-v','--verbose',default=False, dest="verbose",
                         help='Display detailed information',action="store_true")
-    parser.add_argument('-r','--ra',default=False, dest="ravalue",
-                        help='Setting RA value.',action="store_true")
+    parser.add_argument('-r','--ra',default=False,type=float, dest="ravalue",
+                        help='Setting RA value.')
     parser.add_argument('-d','--dec',default=False, dest="decvalue",
-                        help='Setting DEC value.',action="store_true")
+                        help='Setting DEC value.',type=float)
     parser.add_argument('-e','--etime',default=False, dest="etime",
-                        help='Setting exposure time.',action="store_true")
+                        help='Setting exposure time.',type=float)
+    parser.add_argument('-c','--csv',default=False, dest="csvname",
+                        help='Exporting CSV file.',type=str)
 
     args = parser.parse_args()
 
@@ -224,17 +226,19 @@ def main():
 
     if args.ravalue is False:
         ra = random.uniform(0, 360)
+        print(f'Using random for RA')
     else:
         ra = ravalue
     
     if args.decvalue is False:
+        print(f'Using random for Dec')
         dec = random.uniform(-90, 90)
     else:
         dec = decvalue
     
     
-    #ra = 1.64066278187
-    #dec = 28.713430003
+    ra = 1.64066278187
+    dec = 28.713430003
     #ra = random.uniform(-90, 90)
     #dec = random.uniform(0, 360)
     
@@ -242,7 +246,7 @@ def main():
         print(f'Boresight center is RA = {ra} DEC ={dec}')
 
     # Give a exposure time
-    if args.exposure is False:
+    if args.etime is False:
         exptime = 0.1 #
     else:
         exptime = etime
@@ -331,7 +335,8 @@ def main():
         for i in range(1280):
             rgb_value.append(getRGBvalue(i))
 
-    stars.to_csv(f'simStarTracker.csv')
+    if args.csvname is not None:
+        stars.to_csv(f'{args.csvname}')
 
     # Loop through star table 
     for index, row in stars.iterrows():
