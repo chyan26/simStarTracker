@@ -238,9 +238,8 @@ def main():
     else:
         dec = decvalue
     
-    
-    ra = 1.64066278187
-    dec = 28.713430003
+    #ra = 1.64066278187
+    #dec = 28.713430003
     #ra = random.uniform(-90, 90)
     #dec = random.uniform(0, 360)
     
@@ -255,6 +254,11 @@ def main():
 
     if args.verbose:
         print(f'Exposure time ={exptime}')
+
+    if args.rota is False:
+        rotation = 0
+    else:
+        rotation = args.rota
 
     a=map(list,zip(*[df['ra'].values,df['dec'].values]))
     coord=np.array([])
@@ -274,7 +278,7 @@ def main():
     w.wcs.latpole = 0
     w.wcs.crpix = [640.5,512.5]
     #w.wcs.cdelt = np.array([0.015972223, 0.015972223])
-    w.wcs.crota = [0,88]
+    w.wcs.crota = [0,rotation]
     w.wcs.cd = np.array([[0.000436314221715, -0.0178552972045], [0.0178617816256,0.000389544945898]])
     w.wcs.crval = [ra,dec]
     w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
