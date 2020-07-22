@@ -211,6 +211,8 @@ def main():
                         help='Setting DEC value.',type=float)
     parser.add_argument('-e','--etime',default=False, dest="etime",
                         help='Setting exposure time.',type=float)
+    parser.add_argument('-a','--rota',default=None, dest="rota",
+                        help='Setting rotation angle.',type=float)
     parser.add_argument('-c','--csv',default=False, dest="csvname",
                         help='Exporting CSV file.',type=str)
 
@@ -254,7 +256,7 @@ def main():
     if args.verbose:
         print(f'Exposure time ={exptime}')
 
-    a=map(list,zip(*[df['dec'].values,df['ra'].values]))
+    a=map(list,zip(*[df['ra'].values,df['dec'].values]))
     coord=np.array([])
     for _ in a:
         if coord.size == 0:
@@ -271,7 +273,8 @@ def main():
     w.wcs.lonpole = 180
     w.wcs.latpole = 0
     w.wcs.crpix = [640.5,512.5]
-    w.wcs.cdelt = np.array([-0.0178552972045, 0.0178617816256])
+    #w.wcs.cdelt = np.array([0.015972223, 0.015972223])
+    w.wcs.crota = [0,88]
     w.wcs.cd = np.array([[0.000436314221715, -0.0178552972045], [0.0178617816256,0.000389544945898]])
     w.wcs.crval = [ra,dec]
     w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
@@ -340,8 +343,8 @@ def main():
 
     # Loop through star table 
     for index, row in stars.iterrows():
-        center = SkyCoord(dec, ra, frame='icrs',unit='deg')
-        target = SkyCoord(row['dec'], row['ra'], frame='icrs',unit='deg')
+        center = SkyCoord(dec=dec, ra=ra, frame='icrs',unit='deg')
+        target = SkyCoord(dec=row['dec'], ra=row['ra'], frame='icrs',unit='deg')
         
         psf=getPSFfromImage(row['theta'],row['rho'])
         
