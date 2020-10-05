@@ -230,13 +230,13 @@ def main():
         ra = random.uniform(0, 360)
         print(f'Using random for RA')
     else:
-        ra = ravalue
+        ra = args.ravalue
     
     if args.decvalue is False:
         print(f'Using random for Dec')
         dec = random.uniform(-90, 90)
     else:
-        dec = decvalue
+        dec = args.decvalue
     
     #ra = 1.64066278187
     #dec = 28.713430003
@@ -250,7 +250,7 @@ def main():
     if args.etime is False:
         exptime = 0.1 #
     else:
-        exptime = etime
+        exptime = arg.etime
 
     if args.verbose:
         print(f'Exposure time ={exptime}')
@@ -274,12 +274,13 @@ def main():
 
     # Set up an orthographic projection
     # Vector properties may be set with Python lists, or Numpy arrays
-    w.wcs.lonpole = 180
-    w.wcs.latpole = 0
-    w.wcs.crpix = [640.5,512.5]
-    #w.wcs.cdelt = np.array([0.015972223, 0.015972223])
+    #w.wcs.lonpole = 180
+    #w.wcs.latpole = 0
+    w.wcs.crpix = [640,512]
+    w.wcs.cdelt = np.array([-0.018138888, -0.018138888])
+    print(f'Rot = {rotation}')
     w.wcs.crota = [0,rotation]
-    w.wcs.cd = np.array([[0.000436314221715, -0.0178552972045], [0.0178617816256,0.000389544945898]])
+    #w.wcs.cd = np.array([[0.000436314221715, -0.0173333333], [0.0173333333,0.000389544945898]])
     w.wcs.crval = [ra,dec]
     w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
 
