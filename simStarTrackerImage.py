@@ -205,6 +205,10 @@ def main():
                         help='Save TIFF file for cell phone display',action="store_true")
     parser.add_argument('-v','--verbose',default=False, dest="verbose",
                         help='Display detailed information',action="store_true")
+    parser.add_argument('-x','--xpix',default=False,type=float, dest="xpix",
+                        help='Setting center pixel X.')
+    parser.add_argument('-y','--ypix',default=False,type=float, dest="ypix",
+                        help='Setting center pixel Y.')
     parser.add_argument('-r','--ra',default=False,type=float, dest="ravalue",
                         help='Setting RA value.')
     parser.add_argument('-d','--dec',default=False, dest="decvalue",
@@ -214,7 +218,7 @@ def main():
     parser.add_argument('-a','--rota',default=None, dest="rota",
                         help='Setting rotation angle.',type=float)
     parser.add_argument('-c','--csv',default=False, dest="csvname",
-                        help='Exporting CSV file.',type=str)
+                        help='Exporting catalog as a CSV file.',type=str)
 
     args = parser.parse_args()
 
@@ -238,6 +242,20 @@ def main():
     else:
         dec = args.decvalue
     
+    if args.xpix is False:
+        print('Using 640')
+        xpix = 640
+    else:
+        xpix = args.xpix
+
+    if args.ypix is False:
+        print('Using 512')
+        ypix = 640
+    else:
+        ypix = args.ypix
+
+    print(f'x, y = {xpix} {ypix}')
+
     #ra = 1.64066278187
     #dec = 28.713430003
     #ra = random.uniform(-90, 90)
@@ -250,7 +268,7 @@ def main():
     if args.etime is False:
         exptime = 0.1 #
     else:
-        exptime = arg.etime
+        exptime = args.etime
 
     if args.verbose:
         print(f'Exposure time ={exptime}')
@@ -276,11 +294,11 @@ def main():
     # Vector properties may be set with Python lists, or Numpy arrays
     #w.wcs.lonpole = 180
     #w.wcs.latpole = 0
-    w.wcs.crpix = [640,512]
-    w.wcs.cdelt = np.array([-0.018138888, -0.018138888])
-    print(f'Rot = {rotation}')
-    w.wcs.crota = [0,rotation]
-    #w.wcs.cd = np.array([[0.000436314221715, -0.0173333333], [0.0173333333,0.000389544945898]])
+    w.wcs.crpix = [xpix,ypix]
+    #w.wcs.cdelt = np.array([-0.018138888, -0.018138888])
+    #print(f'Rot = {rotation}')
+    #w.wcs.crota = [0,rotation]
+    w.wcs.cd = np.array([[0.000327541522637, -0.0180767046765], [0.0181938884166,0.000328537394789]])
     w.wcs.crval = [ra,dec]
     w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
 
