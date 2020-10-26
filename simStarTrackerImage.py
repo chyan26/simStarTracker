@@ -219,6 +219,8 @@ def main():
                         help='Setting rotation angle.',type=float)
     parser.add_argument('-c','--csv',default=False, dest="csvname",
                         help='Exporting catalog as a CSV file.',type=str)
+    parser.add_argument('-w','--wcs',default=False, dest="wcsfits",
+                        help='Importing WCS from FITS.',type=str)
 
     args = parser.parse_args()
 
@@ -244,13 +246,13 @@ def main():
     
     if args.xpix is False:
         print('Using 640')
-        xpix = 640
+        xpix = 640.5
     else:
         xpix = args.xpix
 
     if args.ypix is False:
         print('Using 512')
-        ypix = 640
+        ypix = 512.5
     else:
         ypix = args.ypix
 
@@ -302,9 +304,16 @@ def main():
     w.wcs.crval = [ra,dec]
     w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
 
+
+    if args.wcsfits is not None:
+        hdulist = fits.open(args.wcsfits)
+        w = wcs.WCS(hdulist[0].header,naxis=2)
+        print('Using WCS from file')
+
     # Convert the same coordinates to pixel coordinates.
     pixcrd2 = w.wcs_world2pix(coord, 1)
     #print(pixcrd2)
+
 
     # Putting X, Y to data frame
     df['x']=pixcrd2[:,0]
@@ -340,9 +349,6 @@ def main():
 
     df['Nphoton']=factor*(df['Jy']*10e-26/e_photon)*frequency*psize*qe*tran*exptime/gain
 
-    # Now, write out the WCS object as a FITS header
-    header = w.to_header()
-
     # header is an astropy.io.fits.Header object.  We can use it to create a new
     # PrimaryHDU and write it to a file.
     #hdu = fits.PrimaryHDU(header=header)
@@ -353,8 +359,23 @@ def main():
     # Making a sky frame with noise 
     skyimage=np.random.normal(0.0, 1.0, 1024*1280).reshape(1024,1280)
     #skyimage=np.zeros((1024,1280))
-    
-    
+
+    # Using star field RA DEC for distortion.
+    a=map(list,zip(*[stars['ra'].values,stars['dec'].values]))
+    fieldCoord=np.array([])
+    for _ in a:
+        if fieldCoord.size == 0:
+            fieldCoord = np.array([_])
+        else:
+            fieldCoord = np.vstack((fieldCoord,_))
+    newPixCrd = w.all_world2pix(fieldCoord, 1)
+    stars.insert(len(stars.columns),'distx',newPixCrd[:,0],True)
+    stars.insert(len(stars.columns),'disty',newPixCrd[:,1],True)
+
+    # Now, write out the WCS object as a FITS header
+    header = w.to_header(relax=True)
+
+
     # Establish a table for mapping flux to RGB value
     if args.savetif is True:   
         rgb_value=[]
@@ -387,8 +408,8 @@ def main():
          
 
 
-        x=np.floor(row['x']).astype(int)
-        y=np.floor(row['y']).astype(int)
+        x=np.floor(row['distx']).astype(int)
+        y=np.floor(row['disty']).astype(int)
         if args.nopsf is True:
             skyimage[y,x]=skyimage[y,x]+row['Nphoton']
         else:
@@ -400,9 +421,7 @@ def main():
         #except:
     day = time.strftime('%Y%m%d')
     
-    
-    skyimage[skyimage<0]=0
-    skyimage[skyimage > 1024] =1024
+
     
     if args.savetif is True:
         img = np.zeros((skyimage.shape[0], skyimage.shape[1], 3), dtype = "uint8")
@@ -423,12 +442,12 @@ def main():
             poisson_n=random.uniform(-pvalue, pvalue)
             skyimage[i, j] =  skyimage[i, j]+poisson_n
 
-    skyimage[skyimage > 1024] =1024
-    
+    #skyimage[skyimage > 1024] =1024
+    skyimage[skyimage < 0] = 0
  
 
         
-    hdu = fits.PrimaryHDU(skyimage, header=header)
+    hdu = fits.PrimaryHDU(skyimage.astype('float32'), header=header)
     hdu.writeto(f'simStarTracker_{day}.fits', overwrite=True)
 
 
