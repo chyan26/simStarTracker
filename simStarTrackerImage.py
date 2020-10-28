@@ -12,6 +12,7 @@ import time
 
 from numpy.lib import recfunctions as rfn
 
+import logging
 
 from astropy.io import fits
 from astropy import wcs
@@ -106,7 +107,6 @@ def getPSFfromImage(theta, rho):
     
     # selecting closet PSF
     ind=np.where((psf['rho']-rho).abs() == min((psf['rho']-rho).abs()))
-    
     # Getting sub-image
     x0=psf['x0'][ind[0]].values[0]
     x1=psf['x1'][ind[0]].values[0]
@@ -205,9 +205,9 @@ def main():
                         help='Save TIFF file for cell phone display',action="store_true")
     parser.add_argument('-v','--verbose',default=False, dest="verbose",
                         help='Display detailed information',action="store_true")
-    parser.add_argument('-x','--xpix',default=False,type=float, dest="xpix",
+    parser.add_argument('-x','--xpix',default=None,type=float, dest="xpix",
                         help='Setting center pixel X.')
-    parser.add_argument('-y','--ypix',default=False,type=float, dest="ypix",
+    parser.add_argument('-y','--ypix',default=None,type=float, dest="ypix",
                         help='Setting center pixel Y.')
     parser.add_argument('-r','--ra',default=False,type=float, dest="ravalue",
                         help='Setting RA value.')
@@ -219,7 +219,9 @@ def main():
                         help='Setting rotation angle.',type=float)
     parser.add_argument('-c','--csv',default=False, dest="csvname",
                         help='Exporting catalog as a CSV file.',type=str)
-    parser.add_argument('-w','--wcs',default=False, dest="wcsfits",
+    parser.add_argument('-n','--noheader',default=False, dest="noheader",
+                        help='Turn-off header.',action="store_true")                    
+    parser.add_argument('-w','--wcs',default=None, dest="wcsfits",
                         help='Importing WCS from FITS.',type=str)
 
     args = parser.parse_args()
@@ -229,34 +231,39 @@ def main():
         sys.exit(1) 
     
 
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.WARNING)
+
     catalog = './Catalog/gsc.all'
     df=readStarCatalog(catalog)
 
     if args.ravalue is False:
         ra = random.uniform(0, 360)
-        print(f'Using random for RA')
     else:
         ra = args.ravalue
-    
+    logging.info(f'Using random number for RA = {ra}')
+
+
+
     if args.decvalue is False:
-        print(f'Using random for Dec')
         dec = random.uniform(-90, 90)
     else:
         dec = args.decvalue
-    
-    if args.xpix is False:
-        print('Using 640')
+    logging.info(f'Using random number for DEC = {dec}')
+
+    if args.xpix is None:
         xpix = 640.5
     else:
         xpix = args.xpix
 
     if args.ypix is False:
-        print('Using 512')
         ypix = 512.5
     else:
         ypix = args.ypix
+    logging.info(f'x, y = {xpix} {ypix}')
 
-    print(f'x, y = {xpix} {ypix}')
 
     #ra = 1.64066278187
     #dec = 28.713430003
@@ -274,6 +281,8 @@ def main():
 
     if args.verbose:
         print(f'Exposure time ={exptime}')
+    logging.info(f'Exposure time ={exptime}')
+
 
     if args.rota is False:
         rotation = 0
@@ -304,11 +313,14 @@ def main():
     w.wcs.crval = [ra,dec]
     w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
 
-
     if args.wcsfits is not None:
         hdulist = fits.open(args.wcsfits)
         w = wcs.WCS(hdulist[0].header,naxis=2)
         print('Using WCS from file')
+
+    if (xpix is not None) and (ypix is not None):
+        w.wcs.crpix = [xpix,ypix]
+        logging.info(f'XY center = {xpix}{ypix}')
 
     # Convert the same coordinates to pixel coordinates.
     pixcrd2 = w.wcs_world2pix(coord, 1)
@@ -357,7 +369,7 @@ def main():
     stars=df[(50 < df['x']) & (df['x'] < 1230) & (df['y'] > 50) & (df['y'] < 974)]
 
     # Making a sky frame with noise 
-    skyimage=np.random.normal(0.0, 1.0, 1024*1280).reshape(1024,1280)
+    skyimage=np.random.normal(5, 1.0, 1024*1280).reshape(1024,1280)
     #skyimage=np.zeros((1024,1280))
 
     # Using star field RA DEC for distortion.
@@ -369,8 +381,12 @@ def main():
         else:
             fieldCoord = np.vstack((fieldCoord,_))
     newPixCrd = w.all_world2pix(fieldCoord, 1)
-    stars.insert(len(stars.columns),'distx',newPixCrd[:,0],True)
-    stars.insert(len(stars.columns),'disty',newPixCrd[:,1],True)
+    if args.wcsfits is not None:
+        stars.insert(len(stars.columns),'distx',newPixCrd[:,0],True)
+        stars.insert(len(stars.columns),'disty',newPixCrd[:,1],True)
+    else:
+        stars.insert(len(stars.columns),'distx',pixcrd2[:,0],True)
+        stars.insert(len(stars.columns),'disty',pixcrd2[:,1],True)
 
     # Now, write out the WCS object as a FITS header
     header = w.to_header(relax=True)
@@ -425,12 +441,16 @@ def main():
     
     if args.savetif is True:
         img = np.zeros((skyimage.shape[0], skyimage.shape[1], 3), dtype = "uint8")
-
         for i in range(skyimage.shape[0]):
             for j in range(skyimage.shape[1]):
-                img[i,j,0]=rgb_value[skyimage[i, j].astype('int')][2]
-                img[i,j,1]=rgb_value[skyimage[i, j].astype('int')][1]
-                img[i,j,2]=rgb_value[skyimage[i, j].astype('int')][0]
+                if skyimage[i, j] > 1279:
+                    skyvalue = 1279
+                else:
+                    skyvalue = int(skyimage[i, j])
+
+                img[i,j,0]=rgb_value[skyvalue][2]
+                img[i,j,1]=rgb_value[skyvalue][1]
+                img[i,j,2]=rgb_value[skyvalue][0]
 
         cv2.imwrite(f'simStarTracker_{day}.tiff',img)        
 
@@ -446,8 +466,10 @@ def main():
     skyimage[skyimage < 0] = 0
  
 
-        
-    hdu = fits.PrimaryHDU(skyimage.astype('float32'), header=header)
+    if args.noheader is True:
+        hdu = fits.PrimaryHDU(skyimage.astype('float32'), header=None)
+    else:
+        hdu = fits.PrimaryHDU(skyimage.astype('float32'), header=header)
     hdu.writeto(f'simStarTracker_{day}.fits', overwrite=True)
 
 
