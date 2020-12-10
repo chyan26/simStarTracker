@@ -223,7 +223,12 @@ def main():
                         help='Turn-off header.',action="store_true")                    
     parser.add_argument('-w','--wcs',default=None, dest="wcsfits",
                         help='Importing WCS from FITS.',type=str)
-
+    parser.add_argument('-f','--fitsname',default=None, dest="fitsname",
+                        help='Filename of FITS image.',type=str)
+    parser.add_argument('-t','--width',default=None, dest="imgwidth",
+                        help='Image width.',type=int)
+    parser.add_argument('-g','--height',default=None, dest="imgheight",
+                        help='Image width.',type=int)                    
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
@@ -246,25 +251,28 @@ def main():
     logging.info(f'Using random number for RA = {ra}')
 
 
-
     if args.decvalue is False:
         dec = random.uniform(-90, 90)
     else:
         dec = args.decvalue
     logging.info(f'Using random number for DEC = {dec}')
 
+    if args.imgwidth is None:
+        args.imgwidth = 1096
+
+    if args.imgheight is None:
+        args.imgheight = 2048
+
     if args.xpix is None:
-        xpix = 640.5
-    else:
-        xpix = args.xpix
-
-    if args.ypix is False:
-        ypix = 512.5
-    else:
-        ypix = args.ypix
-    logging.info(f'x, y = {xpix} {ypix}')
+        args.xpix = args.imgwidth/2
+    
+    if args.ypix is None:
+        args.ypix = args.imgheight/2
+    
+    logging.info(f'Image size = {args.imgwidth} {args.imgheight} x, y = {args.xpix} {args.ypix}')
 
 
+ 
     #ra = 1.64066278187
     #dec = 28.713430003
     #ra = random.uniform(-90, 90)
@@ -305,7 +313,7 @@ def main():
     # Vector properties may be set with Python lists, or Numpy arrays
     #w.wcs.lonpole = 180
     #w.wcs.latpole = 0
-    w.wcs.crpix = [xpix,ypix]
+    w.wcs.crpix = [args.xpix,args.ypix]
     #w.wcs.cdelt = np.array([-0.018138888, -0.018138888])
     #print(f'Rot = {rotation}')
     #w.wcs.crota = [0,rotation]
@@ -316,11 +324,11 @@ def main():
     if args.wcsfits is not None:
         hdulist = fits.open(args.wcsfits)
         w = wcs.WCS(hdulist[0].header,naxis=2)
-        print('Using WCS from file')
+        logging.info('Using WCS from file')
 
-    if (xpix is not None) and (ypix is not None):
-        w.wcs.crpix = [xpix,ypix]
-        logging.info(f'XY center = {xpix}{ypix}')
+    #if (xpix is not None) and (ypix is not None):
+    w.wcs.crpix = [args.xpix,args.ypix]
+    logging.info(f'XY center = {args.xpix}  {args.ypix}')
 
     # Convert the same coordinates to pixel coordinates.
     pixcrd2 = w.wcs_world2pix(coord, 1)
@@ -334,7 +342,7 @@ def main():
     # Converting Vmag to ABmag. Note the lambda = 0.5456 micron 
     df['ABmag']=0.02+df['Vmag']
     df['Jy']=10**((df['ABmag']-8.9)/(-2.5))
-    df['theta'],df['rho']=polar(df['x'].values-640,df['y'].values-512)
+    df['theta'],df['rho']=polar(df['x'].values-args.xpix,df['y'].values-args.ypix)
 
 
     # This is the photon energy at 0.5456 micron 
@@ -357,7 +365,7 @@ def main():
 
     # scaling factor for flux.  This is because V mag will over estimate 
     # the total flux.
-    factor = 0.5
+    factor = 0.046
 
     df['Nphoton']=factor*(df['Jy']*10e-26/e_photon)*frequency*psize*qe*tran*exptime/gain
 
@@ -366,10 +374,10 @@ def main():
     #hdu = fits.PrimaryHDU(header=header)
 
     # Selecting stars in the field
-    stars=df[(50 < df['x']) & (df['x'] < 1230) & (df['y'] > 50) & (df['y'] < 974)]
+    stars=df[(50 < df['x']) & (df['x'] < args.imgwidth-20) & (df['y'] > 50) & (df['y'] < args.imgheight-20)]
 
     # Making a sky frame with noise 
-    skyimage=np.random.normal(5, 1.0, 1024*1280).reshape(1024,1280)
+    skyimage=np.random.normal(5, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
     #skyimage=np.zeros((1024,1280))
 
     # Using star field RA DEC for distortion.
@@ -380,7 +388,11 @@ def main():
             fieldCoord = np.array([_])
         else:
             fieldCoord = np.vstack((fieldCoord,_))
-    newPixCrd = w.all_world2pix(fieldCoord, 1)
+    if args.savetif is True:
+        newPixCrd = w.wcs_world2pix(fieldCoord, 1)
+    else:
+        newPixCrd = w.all_world2pix(fieldCoord, 1)
+    
     if args.wcsfits is not None:
         stars.insert(len(stars.columns),'distx',newPixCrd[:,0],True)
         stars.insert(len(stars.columns),'disty',newPixCrd[:,1],True)
@@ -406,7 +418,7 @@ def main():
         center = SkyCoord(dec=dec, ra=ra, frame='icrs',unit='deg')
         target = SkyCoord(dec=row['dec'], ra=row['ra'], frame='icrs',unit='deg')
         
-        psf=getPSFfromImage(row['theta'],row['rho'])
+        
         
         # sep = center.separation(target)
         # #print(sep.degree)
@@ -429,6 +441,7 @@ def main():
         if args.nopsf is True:
             skyimage[y,x]=skyimage[y,x]+row['Nphoton']
         else:
+            psf=getPSFfromImage(row['theta'],row['rho'])
             point = row['Nphoton']*psf
             dx=int(point.shape[0]/2)
             dy=int(point.shape[1]/2)
@@ -441,12 +454,13 @@ def main():
     
     if args.savetif is True:
         img = np.zeros((skyimage.shape[0], skyimage.shape[1], 3), dtype = "uint8")
+        tiffimage = skyimage/np.max(skyimage)*1279
         for i in range(skyimage.shape[0]):
             for j in range(skyimage.shape[1]):
-                if skyimage[i, j] > 1279:
-                    skyvalue = 1279
+                if tiffimage[i, j] > 1279:
+                    tiffimage = 1279
                 else:
-                    skyvalue = int(skyimage[i, j])
+                    skyvalue = int(tiffimage[i, j])
 
                 img[i,j,0]=rgb_value[skyvalue][2]
                 img[i,j,1]=rgb_value[skyvalue][1]
@@ -470,7 +484,11 @@ def main():
         hdu = fits.PrimaryHDU(skyimage.astype('float32'), header=None)
     else:
         hdu = fits.PrimaryHDU(skyimage.astype('float32'), header=header)
-    hdu.writeto(f'simStarTracker_{day}.fits', overwrite=True)
+    
+    if args.fitsname is not None:
+        hdu.writeto(f'{args.fitsname}', overwrite=True)
+    else:
+        hdu.writeto(f'simStarTracker_{day}.fits', overwrite=True)
 
 
     
