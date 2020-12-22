@@ -412,6 +412,7 @@ def main():
 
     # Establish a table for mapping flux to RGB value
     if args.savetif is True:   
+        # Use look-up table if there is exsit file.
         if os.path.isfile('rgb_table.npy'):
             rgb_value=np.load('rgb_table.npy')
         else:
@@ -465,6 +466,9 @@ def main():
     
     if args.savetif is True:
         img = np.zeros((skyimage.shape[0], skyimage.shape[1], 3), dtype = "uint8")
+        
+        img[:,:,0]=np.random.normal(5, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
+        
         tiffimage = skyimage/np.max(skyimage)*1279
         for i in range(skyimage.shape[0]):
             for j in range(skyimage.shape[1]):
