@@ -229,7 +229,9 @@ def main():
     parser.add_argument('-t','--width',default=None, dest="imgwidth",
                         help='Image width.',type=int)
     parser.add_argument('-g','--height',default=None, dest="imgheight",
-                        help='Image width.',type=int)                    
+                        help='Image width.',type=int)
+    parser.add_argument('-k','--skynoise',default=5, dest="skynoise",
+                        help='Value of sky background',type=int)                    
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
@@ -279,17 +281,15 @@ def main():
     #ra = random.uniform(-90, 90)
     #dec = random.uniform(0, 360)
     
-    if args.verbose:
-        print(f'Boresight center is RA = {ra} DEC ={dec}')
+    #if args.verbose:
+    logging.info(f'Boresight center is RA = {ra} DEC ={dec}')
 
     # Give a exposure time
     if args.etime is False:
         exptime = 0.1 #
     else:
         exptime = args.etime
-
-    if args.verbose:
-        print(f'Exposure time ={exptime}')
+    
     logging.info(f'Exposure time ={exptime}')
 
 
@@ -378,10 +378,11 @@ def main():
     stars=df[(50 < df['x']) & (df['x'] < args.imgwidth-20) & (df['y'] > 50) & (df['y'] < args.imgheight-20)]
 
     # Making a sky frame with noise 
+    logging.info(f'Assign sky background to be {args.skynoise}')
     if args.savetif is True:
         skyimage=np.zeros((args.imgheight, args.imgwidth))
     else:
-        skyimage=np.random.normal(5, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
+        skyimage=np.random.normal(args.skynoise, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
     #skyimage=np.zeros((1024,1280))
 
     # Using star field RA DEC for distortion.
@@ -466,8 +467,7 @@ def main():
     
     if args.savetif is True:
         img = np.zeros((skyimage.shape[0], skyimage.shape[1], 3), dtype = "uint8")
-        
-        img[:,:,0]=np.random.normal(5, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
+        img[:,:,0]=np.random.normal(args.skynoise, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
         
         tiffimage = skyimage/np.max(skyimage)*1279
         for i in range(skyimage.shape[0]):
