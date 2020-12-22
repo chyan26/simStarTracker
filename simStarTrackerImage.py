@@ -391,6 +391,8 @@ def main():
             fieldCoord = np.array([_])
         else:
             fieldCoord = np.vstack((fieldCoord,_))
+    
+    # Calculate the WCS. If savetif is true, turn off the distortion. 
     if args.savetif is True:
         newPixCrd = w.wcs_world2pix(fieldCoord, 1)
     else:
