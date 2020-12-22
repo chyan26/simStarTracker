@@ -9,6 +9,7 @@ import sep
 from PIL import Image
 import cv2
 import time
+import os
 
 from numpy.lib import recfunctions as rfn
 
@@ -411,9 +412,14 @@ def main():
 
     # Establish a table for mapping flux to RGB value
     if args.savetif is True:   
-        rgb_value=[]
-        for i in range(1280):
-            rgb_value.append(getRGBvalue(i))
+        if os.path.isfile('rgb_table.npy'):
+            rgb_value=np.load('rgb_table.npy')
+        else:
+            rgb_value=[]
+            for i in range(1280):
+                rgb_value.append(getRGBvalue(i))
+            np.save('rgb_table', rgb_value)
+
 
     if args.csvname is not None:
         stars.to_csv(f'{args.csvname}')
