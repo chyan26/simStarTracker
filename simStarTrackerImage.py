@@ -377,7 +377,10 @@ def main():
     stars=df[(50 < df['x']) & (df['x'] < args.imgwidth-20) & (df['y'] > 50) & (df['y'] < args.imgheight-20)]
 
     # Making a sky frame with noise 
-    skyimage=np.random.normal(5, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
+    if args.savetif is True:
+        skyimage=np.zeros((args.imgheight, args.imgwidth))
+    else:
+        skyimage=np.random.normal(5, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
     #skyimage=np.zeros((1024,1280))
 
     # Using star field RA DEC for distortion.
