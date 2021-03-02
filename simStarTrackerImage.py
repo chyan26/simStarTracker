@@ -202,8 +202,8 @@ def main():
     #                    help='Number of simulated image.')
     parser.add_argument('-p','--nopsf',default=False, dest="nopsf",
                         help='Removing PSF from star spots',action="store_true")
-    parser.add_argument('-s','--savetif',default=False, dest="savetif",
-                        help='Save TIFF file for cell phone display',action="store_true")
+    parser.add_argument('-s','--savetif',default=None, dest="savetif",
+                        help='Save TIFF file for cell phone display', type=str)
     parser.add_argument('-v','--verbose',default=False, dest="verbose",
                         help='Display detailed information',action="store_true")
     parser.add_argument('-x','--xpix',default=None,type=float, dest="xpix",
@@ -225,7 +225,7 @@ def main():
     parser.add_argument('-w','--wcs',default=None, dest="wcsfits",
                         help='Importing WCS from FITS.',type=str)
     parser.add_argument('-f','--fitsname',default=None, dest="fitsname",
-                        help='Filename of FITS image.',type=str)
+                        help='Filename of FITSimage.',type=str)
     parser.add_argument('-t','--width',default=None, dest="imgwidth",
                         help='Image width.',type=int)
     parser.add_argument('-g','--height',default=None, dest="imgheight",
@@ -293,10 +293,7 @@ def main():
     logging.info(f'Exposure time ={exptime}')
 
 
-    if args.rota is False:
-        rotation = 0
-    else:
-        rotation = args.rota
+    
 
     a=map(list,zip(*[df['ra'].values,df['dec'].values]))
     coord=np.array([])
@@ -326,6 +323,15 @@ def main():
         hdulist = fits.open(args.wcsfits)
         w = wcs.WCS(hdulist[0].header,naxis=2)
         logging.info('Using WCS from file')
+    #print(w.wcs)
+    # Apply rotation to the WCS
+    if args.rota is False:
+        rotation = 0
+    else:
+        rotation = args.rota
+        w.wcs.crota = [rotation, rotation]
+        logging.info(f'Rotate WCS by {rotation} degrees.')
+
 
     #if (xpix is not None) and (ypix is not None):
     w.wcs.crpix = [args.xpix,args.ypix]
@@ -334,6 +340,7 @@ def main():
     # Convert the same coordinates to pixel coordinates.
     pixcrd2 = w.wcs_world2pix(coord, 1)
     #print(pixcrd2)
+    #print(w.wcs)
 
 
     # Putting X, Y to data frame
@@ -366,7 +373,8 @@ def main():
 
     # scaling factor for flux.  This is because V mag will over estimate 
     # the total flux.
-    factor = 0.046
+    #factor = 0.46
+    factor = 0.9
 
     df['Nphoton']=factor*(df['Jy']*10e-26/e_photon)*frequency*psize*qe*tran*exptime/gain
 
@@ -378,7 +386,7 @@ def main():
     stars=df[(50 < df['x']) & (df['x'] < args.imgwidth-20) & (df['y'] > 50) & (df['y'] < args.imgheight-20)]
 
     # Making a sky frame with noise 
-    if args.savetif is True:
+    if args.savetif is not None:
         skyimage=np.zeros((args.imgheight, args.imgwidth))
     else:
         skyimage=np.random.normal(5, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
@@ -394,7 +402,7 @@ def main():
             fieldCoord = np.vstack((fieldCoord,_))
     
     # Calculate the WCS. If savetif is true, turn off the distortion. 
-    if args.savetif is True:
+    if args.savetif is not None:
         newPixCrd = w.wcs_world2pix(fieldCoord, 1)
     else:
         newPixCrd = w.all_world2pix(fieldCoord, 1)
@@ -411,7 +419,7 @@ def main():
 
 
     # Establish a table for mapping flux to RGB value
-    if args.savetif is True:   
+    if args.savetif is not None:   
         # Use look-up table if there is exsit file.
         if os.path.isfile('rgb_table.npy'):
             rgb_value=np.load('rgb_table.npy')
@@ -464,7 +472,7 @@ def main():
     
 
     
-    if args.savetif is True:
+    if args.savetif is not None:
         img = np.zeros((skyimage.shape[0], skyimage.shape[1], 3), dtype = "uint8")
         
         img[:,:,0]=np.random.normal(5, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
@@ -480,8 +488,10 @@ def main():
                 img[i,j,0]=rgb_value[skyvalue][2]
                 img[i,j,1]=rgb_value[skyvalue][1]
                 img[i,j,2]=rgb_value[skyvalue][0]
-
-        cv2.imwrite(f'simStarTracker_{day}.tiff',img)        
+        if args.savetif is not None:
+            cv2.imwrite(f'{args.savetif}', img)
+        else:
+            cv2.imwrite(f'simStarTracker_{day}.tiff',img)        
 
 
     # Adding Poisson Noise to each pixel.
