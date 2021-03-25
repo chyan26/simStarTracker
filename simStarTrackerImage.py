@@ -19,6 +19,9 @@ from astropy.io import fits
 from astropy import wcs
 from astropy.coordinates import SkyCoord
 
+
+
+
 def findSpot(data, sigma):
     image=data
     #m, s = np.mean(image), np.std(image)
@@ -226,9 +229,9 @@ def main():
                         help='Importing WCS from FITS.',type=str)
     parser.add_argument('-f','--fitsname',default=None, dest="fitsname",
                         help='Filename of FITSimage.',type=str)
-    parser.add_argument('-t','--width',default=None, dest="imgwidth",
+    parser.add_argument('-t','--imgwidth',default=None, dest="imgwidth",
                         help='Image width.',type=int)
-    parser.add_argument('-g','--height',default=None, dest="imgheight",
+    parser.add_argument('-g','--imgheight',default=None, dest="imgheight",
                         help='Image width.',type=int)
     parser.add_argument('-k','--skynoise',default=5, dest="skynoise",
                         help='Value of sky background',type=int)                    
@@ -237,10 +240,12 @@ def main():
     if len(sys.argv) == 1:
         parser.print_help() 
         sys.exit(1) 
-    
 
+
+    logging.getLogger('simStarTracker') 
+    
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s',level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.WARNING)
 
@@ -315,7 +320,7 @@ def main():
     #w.wcs.cdelt = np.array([-0.018138888, -0.018138888])
     #print(f'Rot = {rotation}')
     #w.wcs.crota = [0,rotation]
-    w.wcs.cd = np.array([[0.000327541522637, -0.0180767046765], [0.0181938884166,0.000328537394789]])
+    w.wcs.cd = np.array([[0.0, -0.018138888], [0.018138888,0.0]])
     w.wcs.crval = [ra,dec]
     w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
 
@@ -401,19 +406,20 @@ def main():
             fieldCoord = np.array([_])
         else:
             fieldCoord = np.vstack((fieldCoord,_))
-    
+
     # Calculate the WCS. If savetif is true, turn off the distortion. 
     if args.savetif is not None:
         newPixCrd = w.wcs_world2pix(fieldCoord, 1)
     else:
         newPixCrd = w.all_world2pix(fieldCoord, 1)
     
+
     if args.wcsfits is not None:
         stars.insert(len(stars.columns),'distx',newPixCrd[:,0],True)
         stars.insert(len(stars.columns),'disty',newPixCrd[:,1],True)
     else:
-        stars.insert(len(stars.columns),'distx',pixcrd2[:,0],True)
-        stars.insert(len(stars.columns),'disty',pixcrd2[:,1],True)
+        stars.insert(len(stars.columns),'distx',stars['x'],True)
+        stars.insert(len(stars.columns),'disty',stars['y'],True)
 
     # Now, write out the WCS object as a FITS header
     header = w.to_header(relax=True)
