@@ -9,27 +9,30 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+import logging
+from astropy.io import fits
+from astropy import wcs
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(639, 497)
+        MainWindow.resize(500, 450)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
         self.gridLayout.setObjectName("gridLayout")
         self.optionLabel = QtWidgets.QLabel(self.centralwidget)
+        
         font = QtGui.QFont()
         font.setPointSize(16)
         font.setBold(True)
         font.setWeight(75)
+        
+        
         self.optionLabel.setFont(font)
         self.optionLabel.setObjectName("optionLabel")
         self.gridLayout.addWidget(self.optionLabel, 7, 0, 1, 5)
-        self.lineEdit_5 = QtWidgets.QLineEdit(self.centralwidget)
-        self.lineEdit_5.setObjectName("lineEdit_5")
-        self.gridLayout.addWidget(self.lineEdit_5, 4, 2, 1, 6)
+        
         self.ycentLabel = QtWidgets.QLabel(self.centralwidget)
         self.ycentLabel.setObjectName("ycentLabel")
         self.gridLayout.addWidget(self.ycentLabel, 3, 8, 1, 2)
@@ -41,26 +44,18 @@ class Ui_MainWindow(object):
         self.RAlabel.setFont(font)
         self.RAlabel.setObjectName("RAlabel")
         self.gridLayout.addWidget(self.RAlabel, 1, 0, 1, 1)
-        self.label_4 = QtWidgets.QLabel(self.centralwidget)
-        self.label_4.setObjectName("label_4")
-        self.gridLayout.addWidget(self.label_4, 4, 0, 1, 2)
+        
         self.RAlineEdit = QtWidgets.QLineEdit(self.centralwidget)
         self.RAlineEdit.setObjectName("RAlineEdit")
         self.gridLayout.addWidget(self.RAlineEdit, 1, 1, 1, 5)
-        self.lineEdit_7 = QtWidgets.QLineEdit(self.centralwidget)
-        self.lineEdit_7.setObjectName("lineEdit_7")
-        self.gridLayout.addWidget(self.lineEdit_7, 5, 3, 1, 5)
-        self.label_5 = QtWidgets.QLabel(self.centralwidget)
-        self.label_5.setObjectName("label_5")
-        self.gridLayout.addWidget(self.label_5, 4, 8, 1, 1)
+        
+
         spacerItem1 = QtWidgets.QSpacerItem(501, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.gridLayout.addItem(spacerItem1, 0, 4, 1, 12)
-        self.label = QtWidgets.QLabel(self.centralwidget)
-        self.label.setObjectName("label")
-        self.gridLayout.addWidget(self.label, 5, 0, 1, 3)
-        self.lineEdit_6 = QtWidgets.QLineEdit(self.centralwidget)
-        self.lineEdit_6.setObjectName("lineEdit_6")
-        self.gridLayout.addWidget(self.lineEdit_6, 4, 9, 1, 5)
+        
+        
+    
+
         self.boresightLabel = QtWidgets.QLabel(self.centralwidget)
         font = QtGui.QFont()
         font.setPointSize(16)
@@ -70,9 +65,59 @@ class Ui_MainWindow(object):
         self.boresightLabel.setObjectName("boresightLabel")
         self.gridLayout.addWidget(self.boresightLabel, 0, 0, 1, 4)
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
+        
+        # Image width and height
+        self.label_4 = QtWidgets.QLabel(self.centralwidget)
+        self.label_4.setObjectName("label_4")
+        self.gridLayout.addWidget(self.label_4, 4, 0, 1, 2)
+
+        self.lineEdit_5 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_5.setObjectName("lineEdit_5")
+        self.gridLayout.addWidget(self.lineEdit_5, 4, 2, 1, 6)
+
+        self.label_5 = QtWidgets.QLabel(self.centralwidget)
+        self.label_5.setObjectName("label_5")
+        self.gridLayout.addWidget(self.label_5, 4, 8, 1, 1)
+
+        self.lineEdit_6 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_6.setObjectName("lineEdit_6")
+        self.gridLayout.addWidget(self.lineEdit_6, 4, 9, 1, 5)
+
+        self.lineEdit_5.setText(' 1096')
+        self.lineEdit_6.setText(' 2048')
+
+        # Setting EXPTIME 
+        self.label = QtWidgets.QLabel(self.centralwidget)
+        self.label.setObjectName("label")
+        self.gridLayout.addWidget(self.label, 5, 0, 1, 3)
+
+        self.lineEdit_7 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_7.setObjectName("lineEdit_7")
+        self.gridLayout.addWidget(self.lineEdit_7, 5, 3, 1, 5)
+        self.lineEdit_7.setText(f' 0.1')
+
+
+        # WCS file selection
         self.label_2.setObjectName("label_2")
         self.gridLayout.addWidget(self.label_2, 6, 0, 1, 3)
         self.lineEdit_3 = QtWidgets.QLineEdit(self.centralwidget)
+
+        self.wcslineEdit = QtWidgets.QLineEdit(self.centralwidget)
+        self.wcslineEdit.setObjectName("wcslineEdit")
+        self.gridLayout.addWidget(self.wcslineEdit, 6, 3, 1, 9)
+
+        self.selectButton = QtWidgets.QPushButton(self.centralwidget)
+        self.selectButton.setObjectName("selectButton")
+        self.gridLayout.addWidget(self.selectButton, 6, 12, 1, 2)
+        self.selectButton.clicked.connect(self.openWCSNameDialog)
+
+        self.loadButton = QtWidgets.QPushButton(self.centralwidget)
+        self.loadButton.setObjectName("loadButton")
+        self.gridLayout.addWidget(self.loadButton, 6, 14, 1, 1)
+        self.loadButton.clicked.connect(self.loadWCSButtonSlot)
+
+
+
         self.lineEdit_3.setObjectName("lineEdit_3")
         self.gridLayout.addWidget(self.lineEdit_3, 3, 3, 1, 5)
         self.DecLabel = QtWidgets.QLabel(self.centralwidget)
@@ -86,9 +131,9 @@ class Ui_MainWindow(object):
         self.ImageSettingLabel.setFont(font)
         self.ImageSettingLabel.setObjectName("ImageSettingLabel")
         self.gridLayout.addWidget(self.ImageSettingLabel, 2, 0, 1, 5)
-        self.selectButton = QtWidgets.QPushButton(self.centralwidget)
-        self.selectButton.setObjectName("selectButton")
-        self.gridLayout.addWidget(self.selectButton, 6, 12, 1, 2)
+        
+        
+        
         self.lineEdit = QtWidgets.QLineEdit(self.centralwidget)
         self.lineEdit.setObjectName("lineEdit")
         self.gridLayout.addWidget(self.lineEdit, 1, 7, 1, 4)
@@ -106,46 +151,66 @@ class Ui_MainWindow(object):
         self.lineEdit_4 = QtWidgets.QLineEdit(self.centralwidget)
         self.lineEdit_4.setObjectName("lineEdit_4")
         self.gridLayout.addWidget(self.lineEdit_4, 3, 10, 1, 4)
+        
+        
+        # Adding sky noise        
+        self.label_3 = QtWidgets.QLabel(self.centralwidget)
+        self.label_3.setObjectName("label_3")
+        self.gridLayout.addWidget(self.label_3, 8, 0, 1, 4)
         self.lineEdit_9 = QtWidgets.QLineEdit(self.centralwidget)
         self.lineEdit_9.setObjectName("lineEdit_9")
         self.gridLayout.addWidget(self.lineEdit_9, 8, 4, 1, 5)
+        self.lineEdit_9.setText(' 5.0')    
+
         spacerItem3 = QtWidgets.QSpacerItem(343, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.gridLayout.addItem(spacerItem3, 8, 9, 1, 7)
-        self.lineEdit_10 = QtWidgets.QLineEdit(self.centralwidget)
-        self.lineEdit_10.setObjectName("lineEdit_10")
-        self.gridLayout.addWidget(self.lineEdit_10, 9, 11, 1, 4)
+        
+        
+        # Adding Quit and Go button
         self.quitButton = QtWidgets.QPushButton(self.centralwidget)
         self.quitButton.setObjectName("quitButton")
+        self.quitButton.clicked.connect(QtWidgets.QApplication.instance().quit)
         self.gridLayout.addWidget(self.quitButton, 10, 12, 1, 2)
         self.goButton = QtWidgets.QPushButton(self.centralwidget)
         self.goButton.setObjectName("goButton")
         self.gridLayout.addWidget(self.goButton, 10, 14, 1, 2)
-        self.browse = QtWidgets.QPushButton(self.centralwidget)
-        self.browse.setObjectName("browse")
-        self.gridLayout.addWidget(self.browse, 9, 15, 1, 1)
-        self.loadButton = QtWidgets.QPushButton(self.centralwidget)
-        self.loadButton.setObjectName("loadButton")
-        self.gridLayout.addWidget(self.loadButton, 6, 14, 1, 1)
-        self.label_3 = QtWidgets.QLabel(self.centralwidget)
-        self.label_3.setObjectName("label_3")
-        self.gridLayout.addWidget(self.label_3, 8, 0, 1, 4)
-        self.label_6 = QtWidgets.QLabel(self.centralwidget)
-        self.label_6.setObjectName("label_6")
-        self.gridLayout.addWidget(self.label_6, 9, 8, 1, 3)
+        self.goButton.clicked.connect(self.goButtonSlot)
+        
+        
+        
+
+        # Radio button
         self.groupBox = QtWidgets.QGroupBox(self.centralwidget)
         self.groupBox.setObjectName("groupBox")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.groupBox)
         self.horizontalLayout.setObjectName("horizontalLayout")
-        self.radioButton = QtWidgets.QRadioButton(self.groupBox)
-        self.radioButton.setObjectName("radioButton")
-        self.horizontalLayout.addWidget(self.radioButton)
-        self.radioButton_2 = QtWidgets.QRadioButton(self.groupBox)
-        self.radioButton_2.setObjectName("radioButton_2")
-        self.horizontalLayout.addWidget(self.radioButton_2)
+        self.tiffButton = QtWidgets.QRadioButton(self.groupBox)
+        self.tiffButton.setObjectName("select_tiff")
+        self.horizontalLayout.addWidget(self.tiffButton)
+        self.fitsButton = QtWidgets.QRadioButton(self.groupBox)
+        self.fitsButton.setObjectName("select_fits")
+        self.horizontalLayout.addWidget(self.fitsButton)
         self.gridLayout.addWidget(self.groupBox, 9, 0, 1, 8)
-        self.lineEdit_8 = QtWidgets.QLineEdit(self.centralwidget)
-        self.lineEdit_8.setObjectName("lineEdit_8")
-        self.gridLayout.addWidget(self.lineEdit_8, 6, 3, 1, 9)
+        
+
+        # Adding output file name line text
+        
+        self.label_6 = QtWidgets.QLabel(self.centralwidget)
+        self.label_6.setObjectName("label_6")
+        self.gridLayout.addWidget(self.label_6, 9, 8, 1, 3)
+
+        self.lineEdit_10 = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit_10.setObjectName("lineEdit_10")
+        self.gridLayout.addWidget(self.lineEdit_10, 9, 11, 1, 4)
+        self.browse = QtWidgets.QPushButton(self.centralwidget)
+
+        self.browse.setObjectName("browse")
+        self.gridLayout.addWidget(self.browse, 9, 15, 1, 1)
+        self.browse.clicked.connect(self.openFileNameDialog)
+
+        
+        
+        # Make GUI here
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 639, 24))
@@ -181,15 +246,56 @@ class Ui_MainWindow(object):
         self.label_3.setText(_translate("MainWindow", "Sky Noise"))
         self.label_6.setText(_translate("MainWindow", "File Name"))
         self.groupBox.setTitle(_translate("MainWindow", "Output Format"))
-        self.radioButton.setText(_translate("MainWindow", "TIFF"))
-        self.radioButton_2.setText(_translate("MainWindow", "FITS"))
+        self.tiffButton.setText(_translate("MainWindow", "TIFF"))
+        self.fitsButton.setText(_translate("MainWindow", "FITS"))
 
+    def openWCSNameDialog(self):    
+        options = QtWidgets.QFileDialog.Options()
+        #options |= QtWidgets.QFileDialog.DontUseNativeDialog
+        wcsName, _ = QtWidgets.QFileDialog.getOpenFileName(None,"Select WCS file", QtCore.QDir.currentPath(),
+            "All Files (*.wcs)", options=options)
+        if wcsName:
+            self.wcslineEdit.setText(wcsName)
+            print(wcsName)
+
+    def loadWCSButtonSlot(self):
+        wcsName = self.wcslineEdit.text()
+        hdulist = fits.open(wcsName)
+        w = wcs.WCS(hdulist[0].header,naxis=2)
+        logging.info('Using WCS from file')
+        self.RAlineEdit.setText(f'{w.wcs.crval[0]:15.8f}')
+        self.lineEdit.setText(f'{w.wcs.crval[1]:15.8f}')
+        
+        self.lineEdit_3.setText(f'{w.wcs.crpix[0]}')
+        self.lineEdit_4.setText(f'{w.wcs.crpix[0]}')
+
+
+    def openFileNameDialog(self):    
+        options = QtWidgets.QFileDialog.Options()
+        #options |= QtWidgets.QFileDialog.DontUseNativeDialog
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(None,"Select Output file", QtCore.QDir.currentPath(),
+            "All Files (*);;Python Files (*.py)", options=options)
+        if fileName:
+            self.lineEdit_10.setText(fileName)
+            print(fileName)
+
+
+    def goButtonSlot(self):
+        skynoise = self.lineEdit_9.text()
+        outputFile =  self.lineEdit_10.text()
+        print(f'{outputFile} {skynoise}')
 
 if __name__ == "__main__":
     import sys
+    logging.basicConfig(level=logging.INFO)
+    
+    
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
     MainWindow.show()
+    
+    
+    
     sys.exit(app.exec_())
