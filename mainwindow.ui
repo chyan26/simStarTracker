@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>639</width>
+    <height>497</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="7" column="0" colspan="5">
+     <widget class="QLabel" name="optionLabel">
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Options</string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="2" colspan="6">
+     <widget class="QLineEdit" name="lineEdit_5"/>
+    </item>
+    <item row="3" column="8" colspan="2">
+     <widget class="QLabel" name="ycentLabel">
+      <property name="text">
+       <string>Y Center</string>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="8" colspan="8">
+     <spacer name="horizontalSpacer_3">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>394</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item row="1" column="0">
+     <widget class="QLabel" name="RAlabel">
+      <property name="font">
+       <font>
+        <pointsize>14</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>R.A.</string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="0" colspan="2">
+     <widget class="QLabel" name="label_4">
+      <property name="text">
+       <string>Width</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1" colspan="5">
+     <widget class="QLineEdit" name="RAlineEdit"/>
+    </item>
+    <item row="5" column="3" colspan="5">
+     <widget class="QLineEdit" name="lineEdit_7"/>
+    </item>
+    <item row="4" column="8">
+     <widget class="QLabel" name="label_5">
+      <property name="text">
+       <string>Height</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="4" colspan="12">
+     <spacer name="horizontalSpacer">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>501</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item row="5" column="0" colspan="3">
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string>Exp Time</string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="9" colspan="5">
+     <widget class="QLineEdit" name="lineEdit_6"/>
+    </item>
+    <item row="0" column="0" colspan="4">
+     <widget class="QLabel" name="boresightLabel">
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Boresight</string>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="0" colspan="3">
+     <widget class="QLabel" name="label_2">
+      <property name="text">
+       <string>WCS File</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="3" colspan="5">
+     <widget class="QLineEdit" name="lineEdit_3"/>
+    </item>
+    <item row="1" column="6">
+     <widget class="QLabel" name="DecLabel">
+      <property name="text">
+       <string>Dec</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0" colspan="5">
+     <widget class="QLabel" name="ImageSettingLabel">
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Image Setting</string>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="12" colspan="2">
+     <widget class="QPushButton" name="selectButton">
+      <property name="text">
+       <string>Select</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="7" colspan="4">
+     <widget class="QLineEdit" name="lineEdit"/>
+    </item>
+    <item row="2" column="5" colspan="11">
+     <spacer name="horizontalSpacer_2">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>476</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item row="1" column="13" colspan="2">
+     <widget class="QLineEdit" name="lineEdit_2"/>
+    </item>
+    <item row="1" column="11" colspan="2">
+     <widget class="QLabel" name="RotLabel">
+      <property name="text">
+       <string>Rotation</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0" colspan="3">
+     <widget class="QLabel" name="xcentLabel">
+      <property name="text">
+       <string>X Center</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="10" colspan="4">
+     <widget class="QLineEdit" name="lineEdit_4"/>
+    </item>
+    <item row="8" column="4" colspan="5">
+     <widget class="QLineEdit" name="lineEdit_9"/>
+    </item>
+    <item row="8" column="9" colspan="7">
+     <spacer name="horizontalSpacer_4">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>343</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item row="9" column="11" colspan="4">
+     <widget class="QLineEdit" name="lineEdit_10"/>
+    </item>
+    <item row="10" column="12" colspan="2">
+     <widget class="QPushButton" name="quitButton">
+      <property name="text">
+       <string>Quit</string>
+      </property>
+     </widget>
+    </item>
+    <item row="10" column="14" colspan="2">
+     <widget class="QPushButton" name="goButton">
+      <property name="text">
+       <string>Go !</string>
+      </property>
+     </widget>
+    </item>
+    <item row="9" column="15">
+     <widget class="QPushButton" name="browse">
+      <property name="text">
+       <string>browse</string>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="14">
+     <widget class="QPushButton" name="loadButton">
+      <property name="text">
+       <string>Load</string>
+      </property>
+     </widget>
+    </item>
+    <item row="8" column="0" colspan="4">
+     <widget class="QLabel" name="label_3">
+      <property name="text">
+       <string>Sky Noise</string>
+      </property>
+     </widget>
+    </item>
+    <item row="9" column="8" colspan="3">
+     <widget class="QLabel" name="label_6">
+      <property name="text">
+       <string>File Name</string>
+      </property>
+     </widget>
+    </item>
+    <item row="9" column="0" colspan="8">
+     <widget class="QGroupBox" name="groupBox">
+      <property name="title">
+       <string>Output Format</string>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout">
+       <item>
+        <widget class="QRadioButton" name="radioButton">
+         <property name="text">
+          <string>TIFF</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QRadioButton" name="radioButton_2">
+         <property name="text">
+          <string>FITS</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="6" column="3" colspan="9">
+     <widget class="QLineEdit" name="lineEdit_8"/>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>639</width>
+     <height>24</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
