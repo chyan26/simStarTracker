@@ -1,68 +1,18 @@
-import pandas as pd
-import random
-import numpy as np
-import math
-import sys
-import argparse
-import math
-import sep
-from PIL import Image
-import cv2
-import time
+
 import os
-
-from numpy.lib import recfunctions as rfn
-
+from PyQt5 import QtCore, QtGui, QtWidgets
 import logging
-
 from astropy.io import fits
 from astropy import wcs
-from astropy.coordinates import SkyCoord
+import numpy as np
+import pandas as pd
+import math
+import time
+import cv2
 
-
-
-
-def findSpot(data, sigma):
-    image=data
-    #m, s = np.mean(image), np.std(image)
-    bkg = sep.Background(image, bw=32, bh=32, fw=3, fh=3)
-    objs = sep.extract(image-bkg, sigma, err=bkg.globalrms)
-    aper_radius=3
-    
-    # Calculate the Kron Radius
-    kronrad, krflag = sep.kron_radius(image, objs['x'], objs['y'], \
-        objs['a'], objs['b'], objs['theta'], aper_radius)
-
-    r_min = 3
-    use_circle = kronrad * np.sqrt(objs['a'] * objs['b'])
-    cinx=np.where(use_circle <= r_min)
-    einx=np.where(use_circle > r_min)
-
-    # Calculate the equivalent of FLUX_AUTO
-    flux, fluxerr, flag = sep.sum_ellipse(image, objs['x'][einx], objs['y'][einx], \
-        objs['a'][einx], objs['b'][einx], objs['theta'][einx], 2.5*kronrad[einx],subpix=1)		
-
-    cflux, cfluxerr, cflag = sep.sum_circle(image, objs['x'][cinx], objs['y'][cinx],
-                                    objs['a'][cinx], subpix=1)
-
-    # Adding half pixel to measured coordinate.  
-    objs['x'] =  objs['x']+0.5
-    objs['y'] =  objs['y']+0.5
-
-    objs['flux'][einx]=flux
-    objs['flux'][cinx]=cflux
-
-
-    r, flag = sep.flux_radius(image, objs['x'], objs['y'], \
-        6*objs['a'], 0.3,normflux=objs['flux'], subpix=5)
-
-    flag |= krflag
- 
-    objs=rfn.append_fields(objs, 'r', data=r, usemask=False)
-
-    objects=objs[:]
-    
-    return objects
+IMAGE_WIDTH = 1096.0
+IMAGE_HEIGHT = 2048.0
+logging.basicConfig(level=logging.INFO)
 
 def polar(x, y):
     theta = np.arctan2(y, x)* 180 / np.pi
@@ -78,412 +28,183 @@ def polar(x, y):
     return theta, rho
 
 
+class SimStarTrackerImage(object):
+    def __init__(self, imgwidth, imgheight):
+        self.imgwidth = int(imgwidth)
+        self.imgheight = int(imgheight)
+        self.xpix = imgwidth/2
+        self.ypix = imgheight/2
+        self.wcs = None
+        self.ra = None
+        self.dec = None
+        self.exptime = None
+        self.rot=None
+        self.starDF = None
+        self.outputFileName = None
 
-def readPSFfromFile(file):
-    
-    with open(file,'r') as f:
-        lines = f.readlines()[19:]
+        self.skynoise = 0
+        self.tiffimage = None
 
-    image=np.array([])
-    for l in lines:
-        if image.size == 0:
-            image = np.array(l.replace("\n","").split()).astype(float)
+    def buildWCS(self,wcsFile=None):
+        if wcsFile is not None:
+            logging.info(f'Buiding WCS from file')
+
+            hdulist = fits.open(wcsFile)
+            w = wcs.WCS(hdulist[0].header,naxis=2)
         else:
-            image = np.vstack((image, np.array(l.replace("\n","").split()).astype(float)))
-    
-    image=image/np.sum(image)
-    return image
+            w = wcs.WCS(naxis=2)
 
-def getPSFfromImage(theta, rho):
-    hdul = fits.open('psf.fits')
-    image=hdul[0].data
-    objs=findSpot(image.astype(np.float32),30)
-    psf = pd.DataFrame(data={'x':np.floor(objs['x']).astype(int),
-                             'y':np.floor(objs['y']).astype(int),
-                             'r':np.floor(8*objs['r']).astype(int)})
-    psf['x0']=psf['x']-psf['r']
-    psf['x1']=psf['x']+psf['r']
-    psf['y0']=psf['y']-psf['r']
-    psf['y1']=psf['y']+psf['r']
-    
-    
-    psf['theta'],psf['rho']=polar(psf['x'].values-822,psf['y'].values-1920)
-    
-    # selecting closet PSF
-    ind=np.where((psf['rho']-rho).abs() == min((psf['rho']-rho).abs()))
-    # Getting sub-image
-    x0=psf['x0'][ind[0]].values[0]
-    x1=psf['x1'][ind[0]].values[0]
-    y0=psf['y0'][ind[0]].values[0]
-    y1=psf['y1'][ind[0]].values[0]
-    
-    subimage=image[y0:y1,x0:x1]
-
-    
-    
-    # calculating the angle difference
-    delta_angle = psf['theta'][ind[0]] - theta
-    
-    #print(psf['theta'][ind[0]],psf['rho'][ind[0]], delta_angle.values[0])
-
-
-    #Rotate the subimage
-    rot_subimage=np.array(
-        Image.fromarray(subimage).rotate(-delta_angle.values[0], resample=Image.BILINEAR)
-        )
-    
-    # Cast the array to float and normalize to unity
-    
-    psfimg=rot_subimage.astype(np.float32)
-    psfimg[:]=psfimg[:]-np.median(psfimg)
-    psfimg[psfimg < 0]=0
-    psfimg[:]=psfimg[:]/np.sum(psfimg)
-
-    #print(psfimg)
-    return psfimg
-
-def getRGBvalue(photon):
-    
-    if photon < 1:
-        return 0,0,0
-    else:
-        count = [e for e in range(256)]
-        r=[]
-        g=[]
-        b=[]
-
-
-        for i in count:
-            if i is 0:
-                r.append(0)
-                g.append(0)
-                b.append(0)
-            elif i < 50:
-                r.append(10**(-3.358+2.878*np.log10(i)))
-                g.append(10**(-3.582+3.016*np.log10(i)))
-                b.append(10**(-5.943+4.539*np.log10(i)))
+       
+            w.wcs.crpix = [self.xpix,self.ypix]
+            #w.wcs.cdelt = np.array([-0.018138888, -0.018138888])
+            #print(f'Rot = {rotation}')
+            #w.wcs.crota = [0,rotation]
+            w.wcs.cd = np.array([[0.0, -0.018138888], [0.018138888,0.0]])
+            w.wcs.crval = [self.ra,self.dec]
+            w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
+            #print(w.wcs)
+            # Apply rotation to the WCS
+            if self.rot is not None:
+                rotation = 0
             else:
-                r.append(10**(-2.175+2.138*np.log10(i)))
-                g.append(10**(-2.206+2.167*np.log10(i)))
-                b.append(10**(-2.433+2.207*np.log10(i)))
+                rotation = self.rot
+                w.wcs.crota = [rotation, rotation]
+                logging.info(f'Rotate WCS by {rotation} degrees.')
+        
+        self.wcs = w    
 
-        # scale the count, so that the maximum of R+G+B = 2048
-        d = {'count': count, 
-             'R':2048*(r/(r[255]+g[255]+g[255])), 
-             'G':2048*(g/(r[255]+g[255]+g[255])), 
-             'B':2048*(b/(r[255]+g[255]+g[255]))}
-        df = pd.DataFrame(data=d)
+    def readStarCatalog(self,catalog):
+        
+        df = pd.read_csv(catalog, sep='\s+')
 
-        idx=np.random.uniform(0, 255.0,3)
-        while abs(photon-df["R"][idx[0].astype(int)]-df["G"][idx[1].astype(int)]-df["B"][idx[2].astype(int)]) > 1:
-            idx=np.random.uniform(0, 255,3)
+        # Convert them into pixel cooridnate
+        a=map(list,zip(*[df['ra'].values,df['dec'].values]))
+        coord=np.array([])
+        for _ in a:
+            if coord.size == 0:
+                coord = np.array([_])
+            else:
+                coord = np.vstack((coord,_))
 
-        #print(photon-df["R"][idx[0].astype(int)]-df["G"][idx[1].astype(int)]-df["B"][idx[2].astype(int)])
-        #print(f'{rid} {df["R"][rid]} {gid} {df["G"][gid]} {bid} {df["B"][bid]} ')
+        pixcrd2 = self.wcs.wcs_world2pix(coord, 1)
 
-        return idx[0].astype(int),idx[1].astype(int),idx[2].astype(int)
+        # Putting X, Y to data frame
+        df['x']=pixcrd2[:,0]
+        df['y']=pixcrd2[:,1]
+
+        # Converting Vmag to ABmag. Note the lambda = 0.5456 micron 
+        df['ABmag']=0.02+df['Vmag']
+        df['Jy']=10**((df['ABmag']-8.9)/(-2.5))
+        df['theta'],df['rho']=polar(df['x'].values-self.xpix,df['y'].values-self.ypix)
 
 
+        # This is the photon energy at 0.5456 micron 
+        e_photon = 3.61e-19 # J 
 
-def saveTIFFImage(image, filename):
+        # Assuming the bandwidth from 0.35 to 1 um
+        frequency = 401.75e12 # Hz
 
+        # Collecting area, the aperture is 1 cm = 0.01 m.  
+        psize = math.pi*0.005**2
 
-    pass
+        # give an average QE from 0.35 to 1 um
+        qe=0.36
 
-def readStarCatalog(catalog):
-    df = pd.read_csv(catalog, sep='\s+')
+        # Gain, in the unit of e-/DN
+        gain=10.2 
 
-    return df
+        # Transmission 
+        tran =0.94
 
-def main():
+        # scaling factor for flux.  This is because V mag will over estimate 
+        # the total flux.
+        #factor = 0.46
+        factor = 0.9
+        
+        df['Nphoton']=factor*(df['Jy']*10e-26/e_photon)*frequency*psize*qe*tran*self.exptime/gain
+        
+        # Selecting stars in the field
+        stars=df[(50 < df['x']) & (df['x'] <(self.imgwidth)-20) & (df['y'] > 50) & (df['y'] < (self.imgheight)-20)]
+
+        self.starDF = stars
+        
+        logging.info(f'Star catalog is ready')
+        return stars
+
+    def getRGBvalue(self,photon):
     
-
-
-    parser = argparse.ArgumentParser(description='Generating simulation image for Star Tracker.')
-
-    #parser.add_argument('-l','--loop',default=False, dest="loop",
-    #                    help='Number of simulated image.')
-    parser.add_argument('-p','--nopsf',default=False, dest="nopsf",
-                        help='Removing PSF from star spots',action="store_true")
-    parser.add_argument('-s','--savetif',default=None, dest="savetif",
-                        help='Save TIFF file for cell phone display', type=str)
-    parser.add_argument('-v','--verbose',default=False, dest="verbose",
-                        help='Display detailed information',action="store_true")
-    parser.add_argument('-x','--xpix',default=None,type=float, dest="xpix",
-                        help='Setting center pixel X.')
-    parser.add_argument('-y','--ypix',default=None,type=float, dest="ypix",
-                        help='Setting center pixel Y.')
-    parser.add_argument('-r','--ra',default=False,type=float, dest="ravalue",
-                        help='Setting RA value.')
-    parser.add_argument('-d','--dec',default=False, dest="decvalue",
-                        help='Setting DEC value.',type=float)
-    parser.add_argument('-e','--etime',default=False, dest="etime",
-                        help='Setting exposure time.',type=float)
-    parser.add_argument('-a','--rota',default=None, dest="rota",
-                        help='Setting rotation angle.',type=float)
-    parser.add_argument('-c','--csv',default=False, dest="csvname",
-                        help='Exporting catalog as a CSV file.',type=str)
-    parser.add_argument('-n','--noheader',default=False, dest="noheader",
-                        help='Turn-off header.',action="store_true")                    
-    parser.add_argument('-w','--wcs',default=None, dest="wcsfits",
-                        help='Importing WCS from FITS.',type=str)
-    parser.add_argument('-f','--fitsname',default=None, dest="fitsname",
-                        help='Filename of FITSimage.',type=str)
-    parser.add_argument('-t','--imgwidth',default=None, dest="imgwidth",
-                        help='Image width.',type=int)
-    parser.add_argument('-g','--imgheight',default=None, dest="imgheight",
-                        help='Image width.',type=int)
-    parser.add_argument('-k','--skynoise',default=5, dest="skynoise",
-                        help='Value of sky background',type=int)                    
-    args = parser.parse_args()
-
-    if len(sys.argv) == 1:
-        parser.print_help() 
-        sys.exit(1) 
-
-
-    logging.getLogger('simStarTracker') 
-    
-    if args.verbose:
-        logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s',level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.WARNING)
-
-    catalog = './Catalog/gsc.all'
-    df=readStarCatalog(catalog)
-
-    if args.ravalue is False:
-        ra = random.uniform(0, 360)
-    else:
-        ra = args.ravalue
-    logging.info(f'Using random number for RA = {ra}')
-
-
-    if args.decvalue is False:
-        dec = random.uniform(-90, 90)
-    else:
-        dec = args.decvalue
-    logging.info(f'Using random number for DEC = {dec}')
-
-    if args.imgwidth is None:
-        args.imgwidth = 1096
-
-    if args.imgheight is None:
-        args.imgheight = 2048
-
-    if args.xpix is None:
-        args.xpix = args.imgwidth/2
-    
-    if args.ypix is None:
-        args.ypix = args.imgheight/2
-    
-    logging.info(f'Image size = {args.imgwidth} {args.imgheight} x, y = {args.xpix} {args.ypix}')
-
-
- 
-    #ra = 1.64066278187
-    #dec = 28.713430003
-    #ra = random.uniform(-90, 90)
-    #dec = random.uniform(0, 360)
-    
-    #if args.verbose:
-    logging.info(f'Boresight center is RA = {ra} DEC ={dec}')
-
-    # Give a exposure time
-    if args.etime is False:
-        exptime = 0.1 #
-    else:
-        exptime = args.etime
-    
-    logging.info(f'Exposure time ={exptime}')
-
-
-    
-
-    a=map(list,zip(*[df['ra'].values,df['dec'].values]))
-    coord=np.array([])
-    for _ in a:
-        if coord.size == 0:
-            coord = np.array([_])
+        if photon < 1:
+            return 0,0,0
         else:
-            coord = np.vstack((coord,_))
-
-    # Create a new WCS object.  The number of axes must be set
-    # from the start
-    w = wcs.WCS(naxis=2)
-
-    # Set up an orthographic projection
-    # Vector properties may be set with Python lists, or Numpy arrays
-    #w.wcs.lonpole = 180
-    #w.wcs.latpole = 0
-    w.wcs.crpix = [args.xpix,args.ypix]
-    #w.wcs.cdelt = np.array([-0.018138888, -0.018138888])
-    #print(f'Rot = {rotation}')
-    #w.wcs.crota = [0,rotation]
-    w.wcs.cd = np.array([[0.0, -0.018138888], [0.018138888,0.0]])
-    w.wcs.crval = [ra,dec]
-    w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
-
-    if args.wcsfits is not None:
-        hdulist = fits.open(args.wcsfits)
-        w = wcs.WCS(hdulist[0].header,naxis=2)
-        logging.info('Using WCS from file')
-    #print(w.wcs)
-    # Apply rotation to the WCS
-    if args.rota is False:
-        rotation = 0
-    else:
-        rotation = args.rota
-        w.wcs.crota = [rotation, rotation]
-        logging.info(f'Rotate WCS by {rotation} degrees.')
+            count = [e for e in range(256)]
+            r=[]
+            g=[]
+            b=[]
 
 
-    #if (xpix is not None) and (ypix is not None):
-    w.wcs.crpix = [args.xpix,args.ypix]
-    logging.info(f'XY center = {args.xpix}  {args.ypix}')
+            for i in count:
+                if i is 0:
+                    r.append(0)
+                    g.append(0)
+                    b.append(0)
+                elif i < 50:
+                    r.append(10**(-3.358+2.878*np.log10(i)))
+                    g.append(10**(-3.582+3.016*np.log10(i)))
+                    b.append(10**(-5.943+4.539*np.log10(i)))
+                else:
+                    r.append(10**(-2.175+2.138*np.log10(i)))
+                    g.append(10**(-2.206+2.167*np.log10(i)))
+                    b.append(10**(-2.433+2.207*np.log10(i)))
 
-    # Convert the same coordinates to pixel coordinates.
-    pixcrd2 = w.wcs_world2pix(coord, 1)
-    #print(pixcrd2)
-    #print(w.wcs)
+            # scale the count, so that the maximum of R+G+B = 2048
+            d = {'count': count, 
+                'R':2048*(r/(r[255]+g[255]+g[255])), 
+                'G':2048*(g/(r[255]+g[255]+g[255])), 
+                'B':2048*(b/(r[255]+g[255]+g[255]))}
+            df = pd.DataFrame(data=d)
 
+            idx=np.random.uniform(0, 255.0,3)
+            while abs(photon-df["R"][idx[0].astype(int)]-df["G"][idx[1].astype(int)]-df["B"][idx[2].astype(int)]) > 1:
+                idx=np.random.uniform(0, 255,3)
 
-    # Putting X, Y to data frame
-    df['x']=pixcrd2[:,0]
-    df['y']=pixcrd2[:,1]
+            #print(photon-df["R"][idx[0].astype(int)]-df["G"][idx[1].astype(int)]-df["B"][idx[2].astype(int)])
+            #print(f'{rid} {df["R"][rid]} {gid} {df["G"][gid]} {bid} {df["B"][bid]} ')
 
-    # Converting Vmag to ABmag. Note the lambda = 0.5456 micron 
-    df['ABmag']=0.02+df['Vmag']
-    df['Jy']=10**((df['ABmag']-8.9)/(-2.5))
-    df['theta'],df['rho']=polar(df['x'].values-args.xpix,df['y'].values-args.ypix)
+            return idx[0].astype(int),idx[1].astype(int),idx[2].astype(int)
 
+    def makeTiFFimage(self, stars):
+        
+        skyimage=np.zeros((self.imgheight, self.imgwidth))
 
-    # This is the photon energy at 0.5456 micron 
-    e_photon = 3.61e-19 # J 
-
-    # Assuming the bandwidth from 0.35 to 1 um
-    frequency = 401.75e12 # Hz
-
-    # Collecting area, the aperture is 1 cm = 0.01 m.  
-    psize = math.pi*0.005**2
-
-    # give an average QE from 0.35 to 1 um
-    qe=0.36
-
-    # Gain, in the unit of e-/DN
-    gain=10.2 
-
-    # Transmission 
-    tran =0.94
-
-    # scaling factor for flux.  This is because V mag will over estimate 
-    # the total flux.
-    #factor = 0.46
-    factor = 0.9
-
-    df['Nphoton']=factor*(df['Jy']*10e-26/e_photon)*frequency*psize*qe*tran*exptime/gain
-
-    # header is an astropy.io.fits.Header object.  We can use it to create a new
-    # PrimaryHDU and write it to a file.
-    #hdu = fits.PrimaryHDU(header=header)
-
-    # Selecting stars in the field
-    stars=df[(50 < df['x']) & (df['x'] < args.imgwidth-20) & (df['y'] > 50) & (df['y'] < args.imgheight-20)]
-
-    # Making a sky frame with noise 
-    if args.savetif is not None:
-        skyimage=np.zeros((args.imgheight, args.imgwidth))
-    else:
-        logging.info(f'Assign sky background to be {args.skynoise}')
-        skyimage=np.random.normal(args.skynoise, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
-    #skyimage=np.zeros((1024,1280))
-
-    # Using star field RA DEC for distortion.
-    a=map(list,zip(*[stars['ra'].values,stars['dec'].values]))
-    fieldCoord=np.array([])
-    for _ in a:
-        if fieldCoord.size == 0:
-            fieldCoord = np.array([_])
-        else:
-            fieldCoord = np.vstack((fieldCoord,_))
-
-    # Calculate the WCS. If savetif is true, turn off the distortion. 
-    if args.savetif is not None:
-        newPixCrd = w.wcs_world2pix(fieldCoord, 1)
-    else:
-        newPixCrd = w.all_world2pix(fieldCoord, 1)
-    
-
-    if args.wcsfits is not None:
-        stars.insert(len(stars.columns),'distx',newPixCrd[:,0],True)
-        stars.insert(len(stars.columns),'disty',newPixCrd[:,1],True)
-    else:
-        stars.insert(len(stars.columns),'distx',stars['x'],True)
-        stars.insert(len(stars.columns),'disty',stars['y'],True)
-
-    # Now, write out the WCS object as a FITS header
-    header = w.to_header(relax=True)
-
-
-    # Establish a table for mapping flux to RGB value
-    if args.savetif is not None:   
-        # Use look-up table if there is exsit file.
         if os.path.isfile('rgb_table.npy'):
             rgb_value=np.load('rgb_table.npy')
         else:
             rgb_value=[]
             for i in range(1280):
-                rgb_value.append(getRGBvalue(i))
+                rgb_value.append(self.getRGBvalue(i))
             np.save('rgb_table', rgb_value)
 
+        stars.insert(len(stars.columns),'distx',stars['x'],True)
+        stars.insert(len(stars.columns),'disty',stars['y'],True)
 
-    if args.csvname is not None:
-        stars.to_csv(f'{args.csvname}')
-
-    # Loop through star table 
-    for index, row in stars.iterrows():
-        center = SkyCoord(dec=dec, ra=ra, frame='icrs',unit='deg')
-        target = SkyCoord(dec=row['dec'], ra=row['ra'], frame='icrs',unit='deg')
+        for index, row in stars.iterrows():
+            #center = SkyCoord(dec=dec, ra=ra, frame='icrs',unit='deg')
+            #target = SkyCoord(dec=row['dec'], ra=row['ra'], frame='icrs',unit='deg')
         
         
-        
-        # sep = center.separation(target)
-        # #print(sep.degree)
-        # if sep.degree < 3:
-        #     psf = psf0
-        # if 3 <= sep.degree < 8:
-        #     psf = psf5
-        # if sep.degree >= 8:
-        #     psf = psf8
-        # #try:
-        # #print(y-50,y+50,x-50,x+50)
-        # #if 90 > row['Nphoton'] > 100:
-        #print(row['Nphoton'],row['Vmag'])
-        
-         
-
-
-        x=np.floor(row['distx']).astype(int)
-        y=np.floor(row['disty']).astype(int)
-        if args.nopsf is True:
+            x=np.floor(row['distx']).astype(int)
+            y=np.floor(row['disty']).astype(int)
             skyimage[y,x]=skyimage[y,x]+row['Nphoton']
-        else:
-            psf=getPSFfromImage(row['theta'],row['rho'])
-            point = row['Nphoton']*psf
-            dx=int(point.shape[0]/2)
-            dy=int(point.shape[1]/2)
-            skyimage[y-dy:y+dy,x-dx:x+dy]=skyimage[y-dy:y+dy,x-dx:x+dy]+point
-                #skyimage[y-point.shape[0]/2:y+point.shape[0]/2,x-point.shape[1]/2:x+point.shape[1]/2]+point
+        
         #except:
-    day = time.strftime('%Y%m%d')
-    
-
-    
-    if args.savetif is not None:
         img = np.zeros((skyimage.shape[0], skyimage.shape[1], 3), dtype = "uint8")
-        img[:,:,0]=np.random.normal(args.skynoise, 1.0, args.imgheight*args.imgwidth).reshape(args.imgheight,args.imgwidth)
+        logging.info(f'Sky noise ={self.skynoise}')
+
+        img[:,:,0]=np.random.normal(self.skynoise, 1.0, 
+            self.imgheight*self.imgwidth).reshape(self.imgheight,self.imgwidth)
         
         tiffimage = skyimage/np.max(skyimage)*1279
+        #print(np.max(skyimage))
         for i in range(skyimage.shape[0]):
             for j in range(skyimage.shape[1]):
                 if tiffimage[i, j] > 1279:
@@ -494,37 +215,18 @@ def main():
                 img[i,j,0]=rgb_value[skyvalue][2]
                 img[i,j,1]=rgb_value[skyvalue][1]
                 img[i,j,2]=rgb_value[skyvalue][0]
-        if args.savetif is not None:
-            cv2.imwrite(f'{args.savetif}', img)
+        
+        self.tiffimage= img
+
+    def writeTIFFimage(self):
+        day = time.strftime('%Y%m%d')
+
+        if self.outputFileName is not None:
+            cv2.imwrite(f'{self.outputFileName}', self.tiffimage)
         else:
-            cv2.imwrite(f'simStarTracker_{day}.tiff',img)        
+            cv2.imwrite(f'simStarTracker_{day}.tiff',self.tiffimage)        
 
-
-    # Adding Poisson Noise to each pixel.
-    for i in range(skyimage.shape[0]):
-        for j in range(skyimage.shape[1]):
-            pvalue=np.sqrt(abs(skyimage[i, j]))
-            poisson_n=random.uniform(-pvalue, pvalue)
-            skyimage[i, j] =  skyimage[i, j]+poisson_n
-
-    #skyimage[skyimage > 1024] =1024
-    skyimage[skyimage < 0] = 0
- 
-
-    if args.noheader is True:
-        hdu = fits.PrimaryHDU(skyimage.astype('float32'), header=None)
-    else:
-        hdu = fits.PrimaryHDU(skyimage.astype('float32'), header=header)
-    
-    if args.fitsname is not None:
-        hdu.writeto(f'{args.fitsname}', overwrite=True)
-    else:
-        hdu.writeto(f'simStarTracker_{day}.fits', overwrite=True)
-
+        logging.info(f'TIFF is saved as {self.outputFileName}')
+        #pass
 
     
-        #np.set_printoptions(linewidth=1000)
- 
-if __name__ == '__main__':
-    main()
-
