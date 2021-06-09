@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import math
 import time
-import cv2
+from PIL import Image
 
 IMAGE_WIDTH = 1096.0
 IMAGE_HEIGHT = 2048.0
@@ -152,7 +152,7 @@ class simStarTrackerImage(object):
 
 
             for i in count:
-                if i is 0:
+                if i == 0:
                     r.append(0)
                     g.append(0)
                     b.append(0)
@@ -231,9 +231,11 @@ class simStarTrackerImage(object):
         day = time.strftime('%Y%m%d')
 
         if self.outputFileName is not None:
-            cv2.imwrite(f'{self.outputFileName}', self.tiffimage)
+            Image.fromarray(self.tiffimage).save(f'{self.outputFileName}')
+            #cv2.imwrite(f'{self.outputFileName}', self.tiffimage)
         else:
-            cv2.imwrite(f'simStarTracker_{day}.tiff',self.tiffimage)        
+            Image.fromarray(self.tiffimage).save(f'simStarTracker_{day}.tiff')
+            #cv2.imwrite(f'simStarTracker_{day}.tiff',self.tiffimage)        
 
         logging.info(f'TIFF is saved as {self.outputFileName}')
         #pass
