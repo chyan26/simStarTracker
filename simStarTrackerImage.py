@@ -12,7 +12,6 @@ import cv2
 
 IMAGE_WIDTH = 1096.0
 IMAGE_HEIGHT = 2048.0
-logging.basicConfig(level=logging.INFO)
 
 def polar(x, y):
     theta = np.arctan2(y, x)* 180 / np.pi
@@ -45,13 +44,19 @@ class SimStarTrackerImage(object):
         self.skynoise = 0
         self.tiffimage = None
 
+        logging.basicConfig(format="%(asctime)s.%(msecs)03d %(levelno)s %(name)-10s [%(filename)s:%(lineno)d] %(message)s",
+                    datefmt="%Y-%m-%dT%H:%M:%S")
+        self.logger = logging.getLogger('simStarTracker')
+        self.logger.setLevel(logging.INFO)
+
     def buildWCS(self,wcsFile=None):
         if wcsFile is not None:
-            logging.info(f'Buiding WCS from file')
+            self.logger.info(f'Buiding WCS from file')
 
             hdulist = fits.open(wcsFile)
             w = wcs.WCS(hdulist[0].header,naxis=2)
         else:
+            self.logger.info(f'Buiding WCS from empty')
             w = wcs.WCS(naxis=2)
 
        
@@ -59,17 +64,22 @@ class SimStarTrackerImage(object):
             #w.wcs.cdelt = np.array([-0.018138888, -0.018138888])
             #print(f'Rot = {rotation}')
             #w.wcs.crota = [0,rotation]
-            w.wcs.cd = np.array([[0.0, -0.018138888], [0.018138888,0.0]])
+            scale = 0.0183333
+            #w.wcs.cd = np.array([[0.0, -0.018138888], [0.018138888,0.0]])
             w.wcs.crval = [self.ra,self.dec]
             w.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
             #print(w.wcs)
             # Apply rotation to the WCS
-            if self.rot is not None:
+            if self.rot is None:
                 rotation = 0
             else:
                 rotation = self.rot
+                w.wcs.cd=scale * np.array([[np.cos(np.deg2rad(rotation)), np.sin(np.deg2rad(rotation))],
+                    [-np.sin(np.deg2rad(rotation)),np.cos(np.deg2rad(rotation))]])
+
+
                 w.wcs.crota = [rotation, rotation]
-                logging.info(f'Rotate WCS by {rotation} degrees.')
+                self.logger.info(f'Rotate WCS by {rotation} degrees.')
         
         self.wcs = w    
 
@@ -121,14 +131,19 @@ class SimStarTrackerImage(object):
         #factor = 0.46
         factor = 0.9
         
+        if self.exptime is None:
+            self.logger.info('Exptime is not given use default 0.1')
+            self.exptime = 0.1
+
         df['Nphoton']=factor*(df['Jy']*10e-26/e_photon)*frequency*psize*qe*tran*self.exptime/gain
         
         # Selecting stars in the field
+        
         stars=df[(50 < df['x']) & (df['x'] <(self.imgwidth)-20) & (df['y'] > 50) & (df['y'] < (self.imgheight)-20)]
 
         self.starDF = stars
         
-        logging.info(f'Star catalog is ready')
+        self.logger.info(f'Star catalog is ready')
         return stars
 
     def getRGBvalue(self,photon):
@@ -226,7 +241,7 @@ class SimStarTrackerImage(object):
         else:
             cv2.imwrite(f'simStarTracker_{day}.tiff',self.tiffimage)        
 
-        logging.info(f'TIFF is saved as {self.outputFileName}')
+        self.logger.info(f'TIFF is saved as {self.outputFileName}')
         #pass
 
     
